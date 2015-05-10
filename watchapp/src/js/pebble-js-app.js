@@ -17,7 +17,7 @@ var DEFAULT_UPDATE_URL = 'https://pebble-mars-images.s3.amazonaws.com';
 var rdfUrl = DEFAULT_UPDATE_URL+'/update_rdf.json';
 var manifestUrl = DEFAULT_UPDATE_URL+'/manifest.json';
 var configureUrl = DEFAULT_UPDATE_URL+'/configurable.html';
-						
+
 var DEFAULT_OPTIONS = {
   "marsTime": "on",
   "navcam":  "true",
@@ -25,22 +25,22 @@ var DEFAULT_OPTIONS = {
   "mastcam": "true",
   "mahli":   "true"
 }
-						
+
 function getSavedOptions() {
   var options = localStorage.getItem("options");
   if (options) {
-	try {
-      return JSON.parse(options);
-	} catch(e) {
-	  console.log("WARN: error parsing options from localStorage: "+e);
-	  localStorage.removeItem("options");
-	  return DEFAULT_OPTIONS;
-	}
+    try {
+        return JSON.parse(options);
+    } catch(e) {
+      console.log("WARN: error parsing options from localStorage: ", e);
+      localStorage.removeItem("options");
+      return DEFAULT_OPTIONS;
+    }
   } else {
-	return DEFAULT_OPTIONS;
+    return DEFAULT_OPTIONS;
   }
 }
-						
+
 Pebble.addEventListener("showConfiguration", function() {
   console.log("showing configuration");
   var options = getSavedOptions();
@@ -54,26 +54,26 @@ Pebble.addEventListener("showConfiguration", function() {
   }
   Pebble.openURL(configureUrl+"?"+url_params);
 });
-						
+
 Pebble.addEventListener("webviewclosed", function(e) {
-	console.log("configuration closed");
-	// webview closed
-	try {
-		var options = JSON.parse(decodeURIComponent(e.response));
-		console.log("Options = " + JSON.stringify(options));
-		// Save options to localStorage.
-		localStorage.setItem("options",JSON.stringify(options));
-		processOptions(options);
-	} catch(e) {
-		console.log("Error parsing options: "+e);
-	}
+  console.log("configuration closed");
+  // webview closed
+  try {
+    var options = JSON.parse(decodeURIComponent(e.response));
+    console.log("Options = " + JSON.stringify(options));
+    // Save options to localStorage.
+    localStorage.setItem("options",JSON.stringify(options));
+    processOptions(options);
+  } catch(e) {
+    console.log("Error parsing options: ", e);
+  }
 });
 
 function processOptions() {
-	var options = getSavedOptions();
-	
-	// Toggle display of Mars time
-	Pebble.sendAppMessage({ 'hide_mars_time': options['marsTime'] == "on" ? 0 : 1 });
+  var options = getSavedOptions();
+
+  // Toggle display of Mars time
+  Pebble.sendAppMessage({ 'hide_mars_time': options['marsTime'] == "on" ? 0 : 1 });
 }
 
 function getRelTime(utc_str) {
@@ -87,13 +87,13 @@ function getRelTime(utc_str) {
         rel_time = hours + " hours";
     }
     rel_time += " ago";
-    return rel_time;   
+    return rel_time;
 }
 
 function sendImage(image) {
-	
+
   // Compute new rel_time since this is normally done on the server, but the cache may be out of date.
-  image.rel_time = getRelTime(image.utc); 
+  image.rel_time = getRelTime(image.utc);
 
   console.log("Sending image ...");
   console.log("Relative Time: " + image.rel_time);
@@ -152,41 +152,41 @@ function stopImageSend() {
 }
 
 function sendCachedImage() {
-	var manifest = localStorage.getItem("image_manifest");
-	try {
-		manifest = JSON.parse(manifest);
-	} catch(e) {
-		console.log("Error fetching manifest from localStorage, marking dirty: "+e);
-		localStorage.removeItem("image_manifest");
-		localStorage.removeItem("manifest_version");
-		fetchImages(true);
-		return;
-	}
-	var manifest_version = localStorage.getItem("manifest_version");
-	
-	var options = getSavedOptions();
-	
-	console.log("Cached manifest items: "+manifest.length);
+  var manifest = localStorage.getItem("image_manifest");
+  try {
+    manifest = JSON.parse(manifest);
+  } catch(e) {
+    console.log("Error fetching manifest from localStorage, marking dirty: "+e);
+    localStorage.removeItem("image_manifest");
+    localStorage.removeItem("manifest_version");
+    fetchImages(true);
+    return;
+  }
+  var manifest_version = localStorage.getItem("manifest_version");
 
-	var filtered_images = [];
-	for (var i=0; i < manifest.length; i++) {
-		var image = manifest[i]; 
-		var inst = image['instrument'];
-		if ( (inst.match("[FR]HAZ_") && options['hazcam']) || 
-			 (inst.match("NAV_") && options['navcam']) || 
-			 (inst.match("MAST_") && options['mastcam']) ||
-			 (inst.match("MAHLI") && options['mahli']) ) {
-			
-			filtered_images.push(image);
-		}
-	}
-	console.log("Num filtered images: "+filtered_images.length);
+  var options = getSavedOptions();
 
-	if (filtered_images.length > 0) {
-		currentImageIndex = currentImageIndex % filtered_images.length;
-    	console.log("Sending image "+currentImageIndex+"/"+filtered_images.length);
-		sendImage(filtered_images[currentImageIndex]);
-	}
+  console.log("Cached manifest items: "+manifest.length);
+
+  var filtered_images = [];
+  for (var i=0; i < manifest.length; i++) {
+    var image = manifest[i];
+    var inst = image['instrument'];
+    if ( (inst.match("[FR]HAZ_") && options['hazcam']) ||
+       (inst.match("NAV_") && options['navcam']) ||
+       (inst.match("MAST_") && options['mastcam']) ||
+       (inst.match("MAHLI") && options['mahli']) ) {
+
+      filtered_images.push(image);
+    }
+  }
+  console.log("Num filtered images: "+filtered_images.length);
+
+  if (filtered_images.length > 0) {
+    currentImageIndex = currentImageIndex % filtered_images.length;
+      console.log("Sending image "+currentImageIndex+"/"+filtered_images.length);
+    sendImage(filtered_images[currentImageIndex]);
+  }
 }
 
 function fetchRdf(url, done_cb, error_cb) {
@@ -194,18 +194,18 @@ function fetchRdf(url, done_cb, error_cb) {
   req.open('GET', url, true);
   console.log('Requesting ' + url);
   req.onload = function(e) {
-	if (req.readyState == 4) {
+  if (req.readyState == 4) {
       if(req.status == 200) {
         try {
           rdf = JSON.parse(req.responseText);
           done_cb.apply(null,[rdf]);
-		} catch(e) {
+    } catch(e) {
           error_cb.apply(null,[e]);
-		}
-	  }
-	} else {
-	  error_cb.apply(null,["XHR completed with status: "+req.status]);
-	}
+    }
+    }
+  } else {
+    error_cb.apply(null,["XHR completed with status: "+req.status]);
+  }
   }
   req.onerror = function(e) {
     error_cb.apply(null,[e]);
@@ -218,18 +218,18 @@ function fetchManifest(url, done_cb, error_cb) {
   req.open('GET', url, true);
   console.log('Requesting ' + url);
   req.onload = function(e) {
-	if (req.readyState == 4) {
-      if(req.status == 200) {
-		try {
+    if (req.readyState == 4) {
+      if (req.status == 200) {
+        try {
           manifest = JSON.parse(req.responseText);
           done_cb.apply(null,[manifest]);
-		} catch(e) {
+        } catch(e) {
           error_cb.apply(null,[e]);
-		}
-	  }
-	} else {
-	  error_cb.apply(null,["XHR completed with status: "+req.status]);
-	}
+        }
+      }
+    } else {
+      error_cb.apply(null,["XHR completed with status: "+req.status]);
+    }
   }
   req.onerror = function(e) {
     error_cb.apply(null,[e]);
@@ -242,54 +242,54 @@ function fetchImages(isUpdate) {
   var last_rdf_update = localStorage.getItem('last_rdf_update');
   var update_ttl = localStorage.getItem('update_ttl');
   var time_until_check = 0;
-	
+
   if (last_rdf_update && update_ttl) {
     time_until_check = parseInt(update_ttl - ((new Date().getTime()/1000) - last_rdf_update),10);
-	console.log("Seconds until next RDF check: "+time_until_check);
-	if (time_until_check <= 0) {
+    console.log("Seconds until next RDF check: "+time_until_check);
+    if (time_until_check <= 0) {
       console.log("RDF TTL has expired, fetching new RDF");
-	  fetch_rdf = true;
-	} else {
-	  console.log("RDF TTL has not expired, skipping RDF fetch.");
-	}
+      fetch_rdf = true;
+    } else {
+      console.log("RDF TTL has not expired, skipping RDF fetch.");
+    }
   } else {
-	console.log("RDF localStorage keys have not been set, fetching RDF");
+    console.log("RDF localStorage keys have not been set, fetching RDF");
     fetch_rdf = true;
   }
 
   // Manifest fetch complete callback.
   var manifest_fetch_done_cb = function(manifest) {
-	// Use sol of first image as manifest version.
-	var manifest_version = manifest[0]['sol'];
-	  
+    // Use sol of first image as manifest version.
+    var manifest_version = manifest[0]['sol'];
+
     localStorage.setItem("image_manifest",JSON.stringify(manifest));
-	localStorage.setItem('manifest_version',manifest_version);
-	  
-	console.log("Wrote manifest version "+manifest_version+", with "+manifest.length+" items to localStorage");
-	  
+    localStorage.setItem('manifest_version',manifest_version);
+
+    console.log("Wrote manifest version "+manifest_version+", with "+manifest.length+" items to localStorage");
+
     if (isUpdate) {
       sendCachedImage();
     }
   }
-  
+
   // Manifest fetch error callback.
   var manifest_fetch_error_cb = function(e) {
     console.log("Error fetching manifest.");
     if (isUpdate) {
-	  sendCachedImage();
-	}
+      sendCachedImage();
+    }
   }
-	
+
   // RDF Fetch complete callback.
   var rdf_fetch_done_cb = function(rdf) {
     var rdf_ttl = rdf['ttl'];
-	localStorage.setItem('update_ttl', rdf_ttl);
-	
-	var curr_manifest_version = localStorage.getItem('manifest_version');
-	var new_manifest_version = rdf['manifest_version'];
-	console.log("Got RDF manifest_version: "+new_manifest_version+", current version: "+curr_manifest_version);
-	 
-	if (curr_manifest_version != new_manifest_version) {
+    localStorage.setItem('update_ttl', rdf_ttl);
+
+    var curr_manifest_version = localStorage.getItem('manifest_version');
+    var new_manifest_version = rdf['manifest_version'];
+    console.log("Got RDF manifest_version: "+new_manifest_version+", current version: "+curr_manifest_version);
+
+    if (curr_manifest_version != new_manifest_version) {
       console.log("RDF manifest versions have changed: "+curr_manifest_version+" != "+new_manifest_version+", fetching new manifest.");
       // Manifest versions have changed, get the new manifest.
       fetchManifest(manifestUrl, manifest_fetch_done_cb, manifest_fetch_error_cb);
@@ -299,33 +299,32 @@ function fetchImages(isUpdate) {
         sendCachedImage();
       }
     }
-	localStorage.setItem('last_rdf_update',new Date().getTime()/1000);
+    localStorage.setItem('last_rdf_update',new Date().getTime()/1000);
   }
-  
+
   // RDF Fetch error callback
   var rdf_fetch_error_cb = function(e) {
-	console.log("Error fetching RDF, downloading manifest anyway");
-	fetchManifest(manifestUrl, manifest_fetch_done_cb, manifest_fetch_error_cb);
+    console.log("Error fetching RDF, downloading manifest anyway");
+    fetchManifest(manifestUrl, manifest_fetch_done_cb, manifest_fetch_error_cb);
   }
-  
+
   if (fetch_rdf) {
     fetchRdf(rdfUrl, rdf_fetch_done_cb, rdf_fetch_error_cb);
   } else {
     if (isUpdate) {
-	  sendCachedImage();
-	}
+      sendCachedImage();
+    }
   }
 }
 
 Pebble.addEventListener("ready",
   function(e) {
-	fetchImages(true);
+  fetchImages(true);
   }
 );
 
 Pebble.addEventListener("appmessage",
   function(e) {
-    console.log('watch> ' + JSON.stringify(e.payload));
     if (e.payload.hasOwnProperty('image_request_chunk')) {
       imageResendQueue.push(e.payload.image_request_chunk);
     }
@@ -339,13 +338,13 @@ Pebble.addEventListener("appmessage",
         fetchImages(false);
         currentImageIndex = 0;
       }
-	  sendCachedImage();
+      sendCachedImage();
     }
-	if (e.payload.hasOwnProperty('tz_offset')) {
-	  // Get the number of seconds to add to convert localtime to utc
+    if (e.payload.hasOwnProperty('tz_offset')) {
+      // Get the number of seconds to add to convert localtime to utc
       var offsetSeconds = new Date().getTimezoneOffset() * 60;
       // Send it to the watch
-	  Pebble.sendAppMessage({ 'tz_offset': offsetSeconds });
-	}
+      Pebble.sendAppMessage({ 'tz_offset': offsetSeconds });
+    }
   }
 );

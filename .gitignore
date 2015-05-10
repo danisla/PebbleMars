@@ -3,7 +3,10 @@
 *.png
 *.jpg
 .DS_Store
+server/.env
+server/.ipynb_checkpoints
 
 # Ignore build generated files
 .lock-waf*
 server/images_processed/*
+watchapp/build

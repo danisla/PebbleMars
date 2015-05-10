@@ -1,7 +1,7 @@
 #include <pebble.h>
 #include "PebbleMars.h"
 #include "ui.h"
-	
+
 static Window      *window;
 
 static BitmapLayer *mars_image_layer;
@@ -11,10 +11,14 @@ static BitmapLayer *progress_separator;
 static Layer       *time_layer;
 static TextLayer   *info_layer;
 
-static char info_text[NUM_KEYS][INFO_BUFFER_LEN];
+char info_text[NUM_KEYS][INFO_BUFFER_LEN];
 static uint32_t swap_delay;
 
-static uint32_t mars_image_buffer[IMAGE_ROWS][IMAGE_COLS];
+struct TextLayer *lmst_layer;
+struct BitmapLayer *lmst_separator;
+char lmst_buf[20];
+
+uint32_t mars_image_buffer[IMAGE_ROWS][IMAGE_COLS];
 static GBitmap mars_image_bitmap;
 
 //Initialize the memory for the mars image and load a default one before telling Pebble to update the screen
@@ -85,7 +89,7 @@ static void handle_minute_tick(struct tm *tick_time, TimeUnits units_changed) {
   else
     time_format = "%I:%M";
   strftime(time_text, sizeof(time_text), time_format, tick_time);
-	
+
   //Get Pebble to call our update_time_display_callback()
   layer_mark_dirty(time_layer);
 }
@@ -159,14 +163,14 @@ void ui_init() {
   separator = bitmap_layer_create(GRect(/* x: */ 0, /* y: */ 23,
                                         /* width: */ 144, /* height: */ 1));
   bitmap_layer_set_background_color(separator, GColorWhite);
-	
+
   lmst_layer = text_layer_create(GRect(0, 24, 144, 28));
   lmst_separator = bitmap_layer_create(GRect(0, 52, 144, 1));
   bitmap_layer_set_background_color(lmst_separator, GColorWhite);
 
   mars_image_layer = bitmap_layer_create(GRect(/* x: */ 0, /* y: */ 24,
                                                 /* width: */ 144, /* height: */ 144));
-  mars_image_init();
+	mars_image_init();
 
   time_layer = layer_create(GRect(/* x: */ 0, /* y: */ 134,
                                   /* width: */ 144, /* height: */ 32));
@@ -188,10 +192,10 @@ void ui_init() {
   layer_add_child(window_layer, text_layer_get_layer(lmst_layer));
   layer_add_child(window_layer, bitmap_layer_get_layer(lmst_separator));
   layer_add_child(window_layer, time_layer);
-	
-  // Default to hide Mars Time.	
-  layer_set_hidden((Layer*)lmst_layer, 1);
-  layer_set_hidden((Layer*)lmst_separator, 1);
+
+  // Default to show Mars Time.
+  layer_set_hidden((Layer*)lmst_layer, 0);
+  layer_set_hidden((Layer*)lmst_separator, 0);
 }
 
 void ui_deinit() {

@@ -1,10 +1,11 @@
 #pragma once
 #include <pebble.h>
 #include "PebbleMars.h"
-	
-struct TextLayer *lmst_layer;
-struct BitmapLayer *lmst_separator;
-char lmst_buf[20];
+
+extern struct TextLayer *lmst_layer;
+extern struct BitmapLayer *lmst_separator;
+extern char lmst_buf[20];
+extern char info_text[NUM_KEYS][INFO_BUFFER_LEN];
 
 /*Initialize and destroy the UI elements for our application*/
 void ui_init();

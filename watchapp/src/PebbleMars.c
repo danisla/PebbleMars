@@ -7,23 +7,21 @@
 uint8_t image_next_chunk_id;
 bool image_chunk_marks[IMAGE_CHUNKS];
 bool image_receiving;
+bool hide_mars_time = 0;
 
 static void image_mark_chunk(uint8_t);
 static bool image_check_chunks();
 static void image_start_transfer();
 static void image_complete_transfer();
-static void image_check_chunks_timer_callback(void *);
 
 static uint32_t lmst_update_interval;
 
-static void show_mars_time() {
-  if (persist_exists(PERSIST_HIDE_MARS_TIME_KEY)) {
-    int32_t value = persist_read_int(PERSIST_HIDE_MARS_TIME_KEY);
-    layer_set_hidden((Layer*)lmst_layer, value);
-    layer_set_hidden((Layer*)lmst_separator, value);
-  }
-}
+static AppTimer *g_timer;
 
+static void update_mars_time_visibility() {
+  layer_set_hidden((Layer*)lmst_layer, hide_mars_time);
+  layer_set_hidden((Layer*)lmst_separator, hide_mars_time);
+}
 
 void send_app_message(SendCallback callback, void *data) {
   DictionaryIterator *iter;
@@ -63,7 +61,7 @@ size_t process_string(char *str) {
   }
 
   image_mark_chunk(image_chunk.id);
-	
+
   uint8_t next_row = image_next_chunk_id * IMAGE_CHUNK_SIZE / IMAGE_COLS;
   slide_progress_separator(next_row);
   mars_image_mark_dirty();
@@ -92,7 +90,6 @@ static void image_start_transfer() {
   memset(image_chunk_marks, 0, sizeof(image_chunk_marks));
   Tuplet tuplet = TupletInteger(KEY_IMAGE_START, 0);
   send_app_message(send_uint8, &tuplet);
-  //image_check_chunks_timer_callback(NULL);
 }
 
 static void image_complete_transfer() {
@@ -140,17 +137,6 @@ static bool image_check_chunks() {
   return false;
 }
 
-static void image_check_chunks_timer_callback(void *data) {
-  if (!image_check_chunks()) {
-    //light_enable_interaction();
-    if (DEBUG) APP_LOG(APP_LOG_LEVEL_DEBUG, "timer next: %d", (int) image_next_chunk_id);
-    app_timer_register(50, image_check_chunks_timer_callback, NULL);
-  } else {
-    if (DEBUG) APP_LOG(APP_LOG_LEVEL_DEBUG, "timer done");
-    image_complete_transfer();
-  }
-}
-
 void app_message_out_sent(DictionaryIterator *sent, void *context) {
   if (DEBUG) APP_LOG(APP_LOG_LEVEL_DEBUG, "out_sent");
 }
@@ -174,7 +160,6 @@ void app_message_in_received(DictionaryIterator *received, void *context) {
   if ((t = dict_find(received, KEY_INSTRUMENT))) {
     if (DEBUG) APP_LOG(APP_LOG_LEVEL_DEBUG, "Instrument %s", t->value->cstring);
     set_info_text(KEY_INSTRUMENT, t->value->cstring);
-
   }
   if ((t = dict_find(received, KEY_UTC))) {
     if (DEBUG) APP_LOG(APP_LOG_LEVEL_DEBUG, "UTC %s", t->value->cstring);
@@ -195,29 +180,31 @@ void app_message_in_received(DictionaryIterator *received, void *context) {
     image_complete_transfer();
   }
   if ((t = dict_find(received, KEY_TZ_OFFSET))) {
-	int32_t value = t->value->int32;
-	
-	// Save value to persistent storage.
-	int tz_key_status = persist_write_int(PERSIST_TZ_KEY, value);
-	int tz_ttl_key_status = persist_write_int(PERSIST_TZ_TTL_KEY, time(NULL));
+    int32_t value = t->value->int32;
 
-	if (tz_key_status < 0 || tz_ttl_key_status < 0) {
-	  if (DEBUG) APP_LOG(APP_LOG_LEVEL_ERROR, "Error writing to persistent storage, factory reset may be needed to recover.");
+    // Save value to persistent storage.
+    int tz_key_status = persist_write_int(PERSIST_TZ_KEY, value);
+    int tz_ttl_key_status = persist_write_int(PERSIST_TZ_TTL_KEY, time(NULL));
+
+    if (tz_key_status < 0 || tz_ttl_key_status < 0) {
+      if (DEBUG) APP_LOG(APP_LOG_LEVEL_ERROR, "Error writing to persistent storage, factory reset may be needed to recover.");
     }
     if (DEBUG) APP_LOG(APP_LOG_LEVEL_DEBUG, "TZ Offset from JS: %i, persist write status: %d,%d", (int)value, tz_key_status, tz_ttl_key_status);
   }
   if ((t = dict_find(received, KEY_HIDE_MARS_TIME))) {
-	int32_t value = t->value->int32;
-	
-	// Save value to persistent storage.
-	int key_status = persist_write_int(PERSIST_HIDE_MARS_TIME_KEY, value);
+    int32_t value = t->value->int32;
 
-	if (key_status < 0) {
-	  if (DEBUG) APP_LOG(APP_LOG_LEVEL_ERROR, "Error writing to persistent storage, factory reset may be needed to recover.");
+    hide_mars_time = value;
+
+    // Save value to persistent storage.
+    int key_status = persist_write_int(PERSIST_HIDE_MARS_TIME_KEY, value);
+
+    if (key_status < 0) {
+      if (DEBUG) APP_LOG(APP_LOG_LEVEL_ERROR, "Error writing to persistent storage, factory reset may be needed to recover.");
     }
     if (DEBUG) APP_LOG(APP_LOG_LEVEL_DEBUG, "Mars time hiding from JS: %i, persist write status: %d", (int)value, key_status);
-	  
-	show_mars_time();
+
+    update_mars_time_visibility();
 
   }
 }
@@ -239,6 +226,60 @@ static void update_lmst(uint32_t *ms) {
   app_timer_register(*ms, (AppTimerCallback) update_lmst, ms);
 }
 
+static void handle_new_position(AccelData *accel) {
+  static char g_text[100];
+  static int32_t angle;
+  static uint32_t tilted = 0;
+
+  angle = atan2_lookup(accel->y, accel->z);
+  if (angle < 0) angle = 0;
+
+  // Min tilt angle computed from atan of y and z axis.
+  // When Pebble is flat, angle is 180 degrees.
+  // When roated towards your face, angle increases.
+  // Per atan2_lookup API: 0x10000 = 360 degrees
+  // To achieve tilt between 50 and 90 degrees:
+  //  Min = (0x10000 / 360) * (180+50) = 41860
+  //  Max = (0x10000 / 360) * (180+90) = 49140
+
+  if (angle > 41860 && angle < 49140) {
+    snprintf(g_text, sizeof(g_text), "%s %d", "Tilted", (int)angle);
+    if (tilted == 0) {
+      //vibes_short_pulse();
+    }
+    tilted = 1;
+  } else {
+    snprintf(g_text, sizeof(g_text), "%d", (int)angle);
+    if (tilted == 1) {
+      //vibes_double_pulse();
+    }
+    tilted = 0;
+  }
+
+  //snprintf(g_text, sizeof(g_text), "%d %d %d", accel->x, accel->y, accel->z);
+  //snprintf(g_text, sizeof(g_text), "%d", (int)angle);
+
+  //APP_LOG(APP_LOG_LEVEL_DEBUG, "accel position: %d %d %d", accel->x, accel->y, accel->z);
+
+  text_layer_set_text(lmst_layer, g_text);
+  layer_mark_dirty(text_layer_get_layer(lmst_layer));
+
+}
+
+/*
+static void timer_callback(void *data) {
+  AccelData accel = (AccelData) { .x = 0, .y = 0, .z = 0 };
+
+  accel_service_peek(&accel);
+  handle_new_position(&accel);
+
+  g_timer = app_timer_register(330, timer_callback, NULL);
+}
+static void handle_accel(AccelData *accel_data, uint32_t num_samples) {
+  handle_new_position(accel_data);
+}
+*/
+
 void handle_init(void) {
   ui_init();
 
@@ -246,15 +287,22 @@ void handle_init(void) {
   app_message_register_outbox_sent(app_message_out_sent);
   app_message_register_outbox_failed(app_message_out_failed);
 
-  app_message_open(124, 124);
+  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
+  //app_message_open(124, 124);
 
   accel_tap_service_subscribe(handle_accel_tap);
-	
-  show_mars_time();
-	
+
+  hide_mars_time = (bool)persist_read_int(PERSIST_HIDE_MARS_TIME_KEY);
+
+  update_mars_time_visibility();
+
   lmst_update_interval = 10274;
   update_lmst(&lmst_update_interval);
-	
+
+  // Tilt
+  //accel_data_service_subscribe(15, handle_accel);
+  //g_timer = app_timer_register(500 /* milliseconds */, timer_callback, NULL);
+
   if (DEBUG) APP_LOG(APP_LOG_LEVEL_DEBUG, "Application Started");
 }
 
