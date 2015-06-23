@@ -1,6 +1,5 @@
 boto
 pillow
 requests
-zip
 novas
 novas_de405

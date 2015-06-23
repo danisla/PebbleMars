@@ -5,6 +5,9 @@
 .DS_Store
 server/.env
 server/.ipynb_checkpoints
+server/retriever_env.dev
+server/test_images/
+server/images_raw/
 
 # Ignore build generated files
 .lock-waf*

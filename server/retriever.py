@@ -206,7 +206,7 @@ def processImages(utc):
     rel_time += 'ago'
 
     if has_novas:
-      owlt = "%.3f" % getOwlt(utc_time)
+      owlt = float("%.3f" % getOwlt(utc_time))
     else:
       owlt = None
 

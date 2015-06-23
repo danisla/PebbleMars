@@ -33,18 +33,12 @@ def main():
   manifest_version_path = os.path.join(os.path.dirname(manifest_path), manifest_version_file)
   shutil.copyfile(manifest_path, manifest_version_path)
 
-  manifest_lite_path = path.join(FILE_ROOT,"manifest_lite.json")
-  if os.path.exists(manifest_lite_path):
-    manifest_lite_version_file = "manifest_%s_lite.json" % manifest_version
-    manifest_lite_version_path = os.path.join(os.path.dirname(manifest_lite_path), manifest_lite_version_file)
-    shutil.copyfile(manifest_lite_path, manifest_lite_version_path)
-
   def percent_cb(complete, total):
     sys.stdout.write('.')
     sys.stdout.flush()
 
   # Upload the manifest
-  for fname in [manifest_path, manifest_version_path, manifest_lite_version_path]:
+  for fname in [manifest_path, manifest_version_path]:
     if not os.path.exists(fname):
       print "WARN: upload src path not found: %s" % fname
       continue
