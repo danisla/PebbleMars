@@ -56,11 +56,12 @@ def get_pebble_png(input_url, PebbleType, output_file="Pebble_image.png", zoom_f
 
     else:
         #converting to grayscale and then dithering to black and white
-        im_tempo = im_smaller.convert('LA')
         dithered_im = im_smaller.convert('1')
 
     #saving dithered image as PNG
     dithered_im.save(output_file,"PNG")
+
+    return dithered_im
 
 def rescale(img, width, height, force=True):
     """
@@ -110,9 +111,9 @@ def main():
     if not args.output_file:
         fname,ext = os.path.splitext(os.path.basename(args.input_url))
         if args.PebbleType:
-            args.output_file = "%s.color%s" % (fname, ext)
+            args.output_file = "%s.color.png" % (fname)
         else:
-            args.output_file = "%s.grey%s" % (fname, ext)
+            args.output_file = "%s.grey.png" % (fname)
 
     get_pebble_png(args.input_url, args.PebbleType, args.output_file, args.zoom_fit)
 
